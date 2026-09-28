@@ -6,6 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
   <style>
     :root {
       --bg: #f6f1ea;
@@ -23,8 +26,9 @@
       --err-soft: #fdecea;
       --shadow: 0 1px 2px rgba(31,27,22,.04), 0 12px 40px -12px rgba(31,27,22,.18);
     }
+    /* Dark: follow the device unless the visitor picked light; or when they picked dark. */
     @media (prefers-color-scheme: dark) {
-      :root {
+      :root:not([data-theme="light"]) {
         --bg: #16130f;
         --bg-glow: #2a201a;
         --card: #1f1b17;
@@ -41,6 +45,38 @@
         --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 40px -12px rgba(0,0,0,.6);
       }
     }
+    :root[data-theme="dark"] {
+      --bg: #16130f;
+      --bg-glow: #2a201a;
+      --card: #1f1b17;
+      --ink: #f3ede6;
+      --muted: #a79d91;
+      --line: #362f28;
+      --accent: #d98b98;
+      --accent-ink: #1a0f11;
+      --accent-soft: #3a2328;
+      --ok: #6fcf97;
+      --ok-soft: #1a2e23;
+      --err: #f28b82;
+      --err-soft: #3a1d1b;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 40px -12px rgba(0,0,0,.6);
+    }
+    :root { color-scheme: light; }
+    :root[data-theme="dark"] { color-scheme: dark; }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; } }
+    .theme-toggle {
+      position: fixed; top: 16px; right: 16px; z-index: 10;
+      width: 42px; height: 42px; padding: 0; border-radius: 50%;
+      display: grid; place-items: center;
+      background: var(--card); color: var(--ink);
+      border: 1px solid var(--line); box-shadow: var(--shadow);
+      cursor: pointer; transition: transform .15s, border-color .15s;
+    }
+    .theme-toggle:hover { border-color: var(--muted); filter: none; }
+    .theme-toggle:active { transform: scale(.94); }
+    .theme-toggle .moon { display: none; }
+    .dark-active .theme-toggle .sun { display: none; }
+    .dark-active .theme-toggle .moon { display: block; }
     * { box-sizing: border-box; }
     html, body { margin: 0; min-height: 100%; }
     body {
@@ -92,7 +128,7 @@
     select:hover:not(:disabled) { border-color: var(--muted); }
     select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
     select:disabled { opacity: .6; }
-    button {
+    #send {
       width: 100%; font: inherit; font-size: 16px; font-weight: 600;
       display: flex; align-items: center; justify-content: center; gap: 10px;
       padding: 15px; border: 0; border-radius: 12px;
@@ -100,10 +136,10 @@
       cursor: pointer;
       transition: transform .1s, filter .15s, opacity .15s;
     }
-    button:hover:not(:disabled) { filter: brightness(1.08); }
-    button:active:not(:disabled) { transform: scale(.985); }
+    #send:hover:not(:disabled) { filter: brightness(1.08); }
+    #send:active:not(:disabled) { transform: scale(.985); }
     button:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--accent-soft); }
-    button:disabled { opacity: .45; cursor: not-allowed; }
+    #send:disabled { opacity: .45; cursor: not-allowed; }
 
     .status {
       display: none; margin-top: 20px;
@@ -130,10 +166,15 @@
       .body { padding: 24px 22px 26px; }
       h1 { font-size: 25px; }
     }
+    @media (max-width: 600px) { body { padding-top: 74px; } }
     @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
   </style>
 </head>
 <body>
+  <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to dark mode">
+    <svg class="sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+    <svg class="moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  </button>
   <main class="card">
     <div class="banner">
       <div class="emblem" aria-hidden="true">
@@ -166,6 +207,28 @@
   </main>
 
   <script>
+    // Light/dark toggle: follows the device until the visitor picks one, then remembers it.
+    const themeBtn = document.getElementById("theme-toggle");
+    const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    function isDark() {
+      const t = document.documentElement.dataset.theme;
+      return t ? t === "dark" : darkQuery.matches;
+    }
+    function syncThemeButton() {
+      const dark = isDark();
+      document.documentElement.classList.toggle("dark-active", dark);
+      themeBtn.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+      themeBtn.title = dark ? "Light mode" : "Dark mode";
+    }
+    themeBtn.addEventListener("click", () => {
+      const next = isDark() ? "light" : "dark";
+      document.documentElement.dataset.theme = next;
+      try { localStorage.setItem("theme", next); } catch (e) {}
+      syncThemeButton();
+    });
+    darkQuery.addEventListener("change", syncThemeButton);
+    syncThemeButton();
+
     const select = document.getElementById("student");
     const button = document.getElementById("send");
     const statusEl = document.getElementById("status");
